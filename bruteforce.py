@@ -1,40 +1,56 @@
-import time
+from time import time
+from datetime import timedelta
+import csv
 from pprint import pprint
 
-import numpy as np
-import pandas as waifu
 
-config = {
-    "sep": ",",
-    "dtype": {"name": str, "price": np.float64, "rate": np.float64},
-}
+def rows_from_a_csv_file(filename, dialect="excel", **fmtparams):
+    with open(filename, "r") as csv_file:
+        reader = csv.reader(csv_file, dialect, **fmtparams)
+        next(reader, None)
+        for row in reader:
+            yield row
 
-start = time.process_time()
 
-dataframe = waifu.read_csv("./_data/dataset_bruteforce.csv", **config)
-dataframe["profit"] = dataframe["price"] * dataframe["rate"] / 100
-dataframe = dataframe.sort_values(by=["profit"], ascending=False)
+# name, price, rate
+rows = []
+file = "./_data/dataset_bruteforce.csv"
+
+for row in rows_from_a_csv_file(file):
+    name = row[0]
+    price = float(row[1])
+    rate = float(row[2])
+    profit = (price * rate) / 100
+
+    rows.append([name, price, rate, profit])
 
 # The Capacity is the budget
 # The Weight is the price
+# The value is the profit
 def knapsack(budget, rows: list, selected: list = []):
+    """Time Complecity : O(2^n)"""
+
     if rows:
-        sum1, val1 = knapsack(budget, rows[1:], selected)
+        sum_profit1, val1, cost1 = knapsack(budget, rows[1:], selected)
         value = rows[0]
 
         if value[1] <= budget:
-            selected.append(value)
-            sum2, val2 = knapsack(budget - value[1], rows[1:0], selected)
+            sum_profit2, val2, cost2 = knapsack(budget - value[1], rows[1:], selected + [value])
 
-            if sum1 < sum2:
-                return sum2, val2
+            if sum_profit1 < sum_profit2:
+                return sum_profit2, val2, cost2
 
-        return sum1, val1
+        return sum_profit1, val1, cost1
     else:
-        return sum([i[3] for i in selected]), selected
+        return sum([i[3] for i in selected]), selected, sum([i[2] for i in selected])
 
 
 # [name, price, rate, profit]
-rows = dataframe.values.tolist()
-pprint(knapsack(500, rows))
-print(f"Taken : {time.process_time() - start}s")
+runtimeA = time()
+profitable, items, cost = knapsack(500, rows)
+result = {"cost": cost, "profitable": profitable, "bought": items}
+runtimeB = time()
+
+pprint(result, sort_dicts=False)
+print(f"Executed in {timedelta(seconds=runtimeB - runtimeA)} for {len(rows)}rows in {file}")
+print()
